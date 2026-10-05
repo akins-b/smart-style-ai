@@ -1,0 +1,57 @@
+# Base44 development environment — runs the app from the cloned source
+# (bind-mounted, live-reload via `node --watch`) next to a local Postgres.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: on-failure
+    environment:
+      POSTGRES_USER: smartstyle
+      POSTGRES_PASSWORD: smartstyle-dev
+      POSTGRES_DB: smartstyle
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartstyle -d smartstyle"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  app:
+    image: node:22
+    working_dir: /app
+    restart: on-failure
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DB_HOST=db
+      - DB_USER=smartstyle
+      - DB_PASSWORD=smartstyle-dev
+      - DB_NAME=smartstyle
+      - DB_PORT=5432
+    command:
+      [
+        "sh",
+        "-ec",
+        "mkdir -p uploads && npm ci --no-audit --no-fund && exec node --watch src/server.js",
+      ]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\" || (echo app: health check failed && exit 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  db_data:

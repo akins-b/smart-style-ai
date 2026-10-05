@@ -6,6 +6,18 @@ const pool = require('./config/db');
 const app = express();
 
 app.use(express.json());
+
+app.get('/', (req, res) => {
+    res.json({
+        status: 'OK',
+        service: 'SmartStyle AI Backend',
+        endpoints: {
+            health: 'GET /api/health',
+            uploadImage: 'POST /api/images/upload (multipart field: image)',
+        },
+    });
+});
+
 app.use('/api/health', healthRouter);
 app.use('/api/images', imageRouter);
 
